@@ -1,8 +1,15 @@
 #ifndef _HEADERS_H_
 #define _HEADERS_H_
 
-// Standard Headers
+// Standard Headers (alphabetical order)
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netinet/in.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 // Custom Headers
 #include "client.h"
