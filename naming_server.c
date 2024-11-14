@@ -1,10 +1,4 @@
 #include "headers.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <pthread.h>
 
 int ss_number = 0;           // Number of storage servers
 int client_number = 0;       // Number of clients
