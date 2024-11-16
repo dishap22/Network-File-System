@@ -7,8 +7,10 @@ Client clients[MAX_CLIENTS]; // Array of clients
 StorageServer storageServers[MAX_STORAGE_SERVERS]; // Array of storage servers
 
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER; 
-pthread_mutex_t ss_mutex = PTHREAD_MUTEX_INITIALIZER;      
+pthread_mutex_t ss_mutex = PTHREAD_MUTEX_INITIALIZER;     
 
+// ============================ Interfacing Code ============================
+// Function to handle client requests
 void *handle_client(void *arg) {
     Client *client = (Client *)arg;
     char buffer[MAX_PATH_SIZE];
@@ -28,6 +30,7 @@ void *handle_client(void *arg) {
     return NULL;
 }
 
+// Function to handle storage server requests
 void *handle_storage_server(void *arg) {
     StorageServer *ss = (StorageServer *)arg;
     char buffer[MAX_PATH_SIZE];
@@ -47,6 +50,8 @@ void *handle_storage_server(void *arg) {
     return NULL;
 }
 
+// ============================ Initialization Code ============================
+// Function to register a storage server
 void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
     pthread_mutex_lock(&ss_mutex);
 
@@ -79,6 +84,7 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
     pthread_mutex_unlock(&ss_mutex);
 }
 
+// Function to register a client
 void register_client(int clientSocket, struct sockaddr_in clientAddr) {
     pthread_mutex_lock(&clients_mutex);
 
