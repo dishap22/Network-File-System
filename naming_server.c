@@ -75,6 +75,8 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         pthread_t ss_thread;
         if (pthread_create(&ss_thread, NULL, handle_storage_server, (void *)ss) != 0) {
             perror("Storage server thread creation failed");
+        } else {
+            pthread_detach(ss_thread);
         }
     } else {
         printf("Max storage servers reached. Connection refused: %s:%d\n", inet_ntoa(ssAddr.sin_addr), ntohs(ssAddr.sin_port));
@@ -100,6 +102,8 @@ void register_client(int clientSocket, struct sockaddr_in clientAddr) {
         pthread_t client_thread;
         if (pthread_create(&client_thread, NULL, client_number, (void *)client) != 0) {
             perror("Client thread creation failed");
+        } else {
+            pthread_detach(client_thread);
         }
     } else {
         printf("Max clients reached. Connection refused: %s:%d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
