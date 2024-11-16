@@ -70,7 +70,7 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
             recv(ssSocket, ss->paths[i], MAX_PATH_SIZE, 0);
         }
 
-        printf("Storage Server %d connected: %s:%d with %d paths\n", ss_mutex, ss->ip, ss->port, ss->num_paths);
+        printf("Storage Server %d connected: %s:%d with %d paths\n", ss_number, ss->ip, ss->port, ss->num_paths);
 
         pthread_t ss_thread;
         if (pthread_create(&ss_thread, NULL, handle_storage_server, (void *)ss) != 0) {
@@ -100,7 +100,7 @@ void register_client(int clientSocket, struct sockaddr_in clientAddr) {
         printf("Client %d connected: %s:%d\n", client_number, client->ip, client->port);
 
         pthread_t client_thread;
-        if (pthread_create(&client_thread, NULL, client_number, (void *)client) != 0) {
+        if (pthread_create(&client_thread, NULL, handle_client, (void *)client) != 0) {
             perror("Client thread creation failed");
         } else {
             pthread_detach(client_thread);
@@ -169,6 +169,7 @@ int main(int argc, char *argv[]) {
             printf("Unknown entity connected\n");
             close(newSocket);
         }
+    }
 
     pthread_mutex_destroy(&clients_mutex);
     pthread_mutex_destroy(&ss_mutex);
