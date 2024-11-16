@@ -3,76 +3,104 @@
 int ss_number = 0;           // Number of storage servers
 int client_number = 0;       // Number of clients
 int nmSocket;                // Naming server socket
-int clientSockets[MAX_CLIENTS]; // Client sockets
-struct sockaddr_in* clientAddrs[MAX_CLIENTS]; // Client addresses
+Client clients[MAX_CLIENTS]; // Array of clients
+StorageServer storageServers[MAX_STORAGE_SERVERS]; // Array of storage servers
 
-pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex for thread safety
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER; 
+pthread_mutex_t ss_mutex = PTHREAD_MUTEX_INITIALIZER;      
 
-// Function to handle communication with a client
-void *client_handler(void *arg) {
-    int clientSocket = *(int *)arg;
-    char buffer[1024];
-    int bytesReceived;
+void *handle_client(void *arg) {
+    Client *client = (Client *)arg;
+    char buffer[MAX_PATH_SIZE];
 
-    while ((bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0)) > 0) {
-        buffer[bytesReceived] = '\0';
-        printf("Received from client: %s\n", buffer);
-        // TEMPORARY returning message to client
-        send(clientSocket, buffer, bytesReceived, 0);
-    }
-
-    if (bytesReceived == 0) {
-        printf("Client disconnected\n");
-    } else if (bytesReceived < 0) {
-        perror("recv failed");
-    }
-
-    close(clientSocket);
-
-    pthread_mutex_lock(&clients_mutex);
-    for (int i = 0; i < client_number; i++) {
-        if (clientSockets[i] == clientSocket) {
-            for (int j = i; j < client_number - 1; j++) {
-                clientSockets[j] = clientSockets[j + 1];
-                clientAddrs[j] = clientAddrs[j + 1];
-            }
-            client_number--;
+    while (1) {
+        int bytes_received = recv(client->socket, buffer, MAX_PATH_SIZE, 0);
+        if (bytes_received <= 0) {
+            printf("Client %s:%d disconnected\n", client->ip, client->port);
+            close(client->socket);
             break;
         }
+        buffer[bytes_received] = '\0';
+        printf("Received from client %s:%d - %s\n", client->ip, client->port, buffer);
+        // Process client requests here
     }
-    pthread_mutex_unlock(&clients_mutex);
 
-    free(arg);
-    pthread_exit(NULL);
+    return NULL;
 }
 
-void register_client(int clientSocket, struct sockaddr_in* clientAddr) {
+void *handle_storage_server(void *arg) {
+    StorageServer *ss = (StorageServer *)arg;
+    char buffer[MAX_PATH_SIZE];
+
+    while (1) {
+        int bytes_received = recv(ss->socket, buffer, MAX_PATH_SIZE, 0);
+        if (bytes_received <= 0) {
+            printf("Storage Server %s:%d disconnected\n", ss->ip, ss->port);
+            close(ss->socket);
+            break;
+        }
+        buffer[bytes_received] = '\0';
+        printf("Received from storage server %s:%d - %s\n", ss->ip, ss->port, buffer);
+        // Process storage server messages here
+    }
+
+    return NULL;
+}
+
+void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
+    pthread_mutex_lock(&ss_mutex);
+
+    if (ss_number < MAX_STORAGE_SERVERS) {
+        StorageServer *ss = &storageServers[ss_number++];
+        ss->socket = ssSocket;
+        ss->addr = ssAddr;
+        inet_ntop(AF_INET, &ssAddr.sin_addr, ss->ip, sizeof(ss->ip));
+        ss->port = ntohs(ssAddr.sin_port);
+
+        // Receive additional details from the storage server
+        char buffer[MAX_PATH_SIZE];
+        recv(ssSocket, buffer, MAX_PATH_SIZE, 0);
+        sscanf(buffer, "%d", &ss->num_paths);
+        for (int i = 0; i < ss->num_paths; i++) {
+            recv(ssSocket, ss->paths[i], MAX_PATH_SIZE, 0);
+        }
+
+        printf("Storage Server %d connected: %s:%d with %d paths\n", ss_mutex, ss->ip, ss->port, ss->num_paths);
+
+        pthread_t ss_thread;
+        if (pthread_create(&ss_thread, NULL, handle_storage_server, (void *)ss) != 0) {
+            perror("Storage server thread creation failed");
+        }
+    } else {
+        printf("Max storage servers reached. Connection refused: %s:%d\n", inet_ntoa(ssAddr.sin_addr), ntohs(ssAddr.sin_port));
+        close(ssSocket);
+    }
+
+    pthread_mutex_unlock(&ss_mutex);
+}
+
+void register_client(int clientSocket, struct sockaddr_in clientAddr) {
     pthread_mutex_lock(&clients_mutex);
-    if (client_number >= MAX_CLIENTS) {
-        printf("Max clients reached. Cannot register more clients.\n");
+
+    if (client_number < MAX_CLIENTS) {
+        Client *client = &clients[client_number++];
+        client->socket = clientSocket;
+        client->addr = clientAddr;
+        inet_ntop(AF_INET, &clientAddr.sin_addr, client->ip, sizeof(client->ip));
+        client->port = ntohs(clientAddr.sin_port);
+
+        printf("Client %d connected: %s:%d\n", client_number, client->ip, client->port);
+
+        pthread_t client_thread;
+        if (pthread_create(&client_thread, NULL, client_number, (void *)client) != 0) {
+            perror("Client thread creation failed");
+        }
+    } else {
+        printf("Max clients reached. Connection refused: %s:%d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
         close(clientSocket);
-        pthread_mutex_unlock(&clients_mutex);
-        return;
     }
 
-    clientSockets[client_number] = clientSocket;
-    clientAddrs[client_number] = clientAddr;
-    client_number++;
     pthread_mutex_unlock(&clients_mutex);
-
-    printf("Client %d connected\n", client_number);
-
-    char clientName[MAX_NAME_SIZE];
-    sprintf(clientName, "client%d", client_number);
-    send(clientSocket, clientName, strlen(clientName), 0);
-
-    // Create a thread to handle communication with the client
-    pthread_t tid;
-    int *new_sock = malloc(sizeof(int));
-    *new_sock = clientSocket;
-    if (pthread_create(&tid, NULL, client_handler, (void *)new_sock) != 0) {
-        perror("Failed to create thread");
-    }
 }
 
 int main(int argc, char *argv[]) {
@@ -113,18 +141,27 @@ int main(int argc, char *argv[]) {
     printf("Naming server started on port %d\n", port);
 
     while (1) {
-        struct sockaddr_in* clientAddr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
-        socklen_t clientAddrLen = sizeof(struct sockaddr_in);
-        int newClientSocket = accept(nmSocket, (struct sockaddr *) clientAddr, &clientAddrLen);
-        if (newClientSocket < 0) {
+        struct sockaddr_in newAddr;
+        socklen_t newAddrLen = sizeof(newAddr);
+        int newSocket = accept(nmSocket, (struct sockaddr *) &newAddr, &newAddrLen);
+        if (newSocket < 0) {
             perror("Accept failed");
-            free(clientAddr);
             continue;
         }
 
-        register_client(newClientSocket, clientAddr);
-    }
+        char buffer[MAX_PATH_SIZE];
+        recv(newSocket, buffer, sizeof(buffer), 0);
+        if (strcmp(buffer, "CLIENT") == 0) {
+            register_client(newSocket, newAddr);
+        } else if (strcmp(buffer, "SS") == 0) {
+            register_storage_server(newSocket, newAddr);
+        } else {
+            printf("Unknown entity connected\n");
+            close(newSocket);
+        }
 
+    pthread_mutex_destroy(&clients_mutex);
+    pthread_mutex_destroy(&ss_mutex);
     close(nmSocket);
     return 0;
 }
