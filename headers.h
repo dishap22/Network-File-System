@@ -17,5 +17,6 @@
 #include "naming_server.h"
 #include "storage_server.h"
 #include "defs.h"
+#include "LRU.h"
 
 #endif
