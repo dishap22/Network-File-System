@@ -13,7 +13,7 @@ typedef struct Cache {
     CacheNode *head;
     CacheNode *tail;
     int size;
-    CacheNode *hash[5];
+    CacheNode *hash[CACHE_SIZE];
 } LRUCache;
 
 LRUCache *createCache();
