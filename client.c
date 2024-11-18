@@ -60,10 +60,114 @@ ssize_t receive_response(int sock, char *buffer, size_t buffer_size) {
     return received_bytes;
 }
 
-// Main function
+void handle_operations(int sock){
+    char buffer[BUFFER_SIZE];
+    char request[BUFFER_SIZE];
+
+    while(true){
+        printf("\nChoose an Operation:\n");
+        printf("1. List Accessible Paths\n");
+        printf("2. Read File\n");
+        printf("3. Write File\n");
+        printf("4. Stream Audio\n");
+        printf("5. Create File/Folder\n");
+        printf("6. Delete File/Folder\n");
+        printf("7. Copy File/Directory\n");
+        printf("8. Exit\n");
+        printf("Enter your choice: ");
+        int choice;
+        scanf("%d",&choice);
+        switch (choice) {
+            case 1: // List accessible paths
+                snprintf(request, sizeof(request), "LIST_PATHS");
+                break;
+
+            case 2: { // Read file
+                char path[BUFFER_SIZE];
+                printf("Enter file path to read: ");
+                fgets(path, sizeof(path), stdin);
+                path[strcspn(path, "\n")] = '\0'; // Remove trailing newline
+                snprintf(request, sizeof(request), "READ %s", path);
+                break;
+            }
+
+            case 3: { // Write file
+                char path[BUFFER_SIZE], data[BUFFER_SIZE];
+                printf("Enter file path to write: ");
+                fgets(path, sizeof(path), stdin);
+                path[strcspn(path, "\n")] = '\0';
+                printf("Enter data to write: ");
+                fgets(data, sizeof(data), stdin);
+                data[strcspn(data, "\n")] = '\0';
+                snprintf(request, sizeof(request), "WRITE %s %s", path, data);
+                break;
+            }
+
+            case 4: { // Stream audio
+                char path[BUFFER_SIZE];
+                printf("Enter audio file path to stream: ");
+                fgets(path, sizeof(path), stdin);
+                path[strcspn(path, "\n")] = '\0';
+                snprintf(request, sizeof(request), "STREAM %s", path);
+                break;
+            }
+
+            case 5: { // Create file/folder
+                char path[BUFFER_SIZE], name[BUFFER_SIZE];
+                printf("Enter folder path: ");
+                fgets(path, sizeof(path), stdin);
+                path[strcspn(path, "\n")] = '\0';
+                printf("Enter name of file/folder to create: ");
+                fgets(name, sizeof(name), stdin);
+                name[strcspn(name, "\n")] = '\0';
+                snprintf(request, sizeof(request), "CREATE %s %s", path, name);
+                break;
+            }
+
+            case 6: { // Delete file/folder
+                char path[BUFFER_SIZE];
+                printf("Enter file/folder path to delete: ");
+                fgets(path, sizeof(path), stdin);
+                path[strcspn(path, "\n")] = '\0';
+                snprintf(request, sizeof(request), "DELETE %s", path);
+                break;
+            }
+
+            case 7: { // Copy file/directory
+                char source[BUFFER_SIZE], dest[BUFFER_SIZE];
+                printf("Enter source path: ");
+                fgets(source, sizeof(source), stdin);
+                source[strcspn(source, "\n")] = '\0';
+                printf("Enter destination path: ");
+                fgets(dest, sizeof(dest), stdin);
+                dest[strcspn(dest, "\n")] = '\0';
+                snprintf(request, sizeof(request), "COPY %s %s", source, dest);
+                break;
+            }
+
+            case 8: // Exit
+                printf("Exiting...\n");
+                return;
+
+            default:
+                printf("Invalid choice. Try again.\n");
+                continue;
+        }
+
+        if (send_request(sock, request) < 0) {
+            close(sock);
+            return;
+        }
+
+        ssize_t received_bytes = receive_response(sock, buffer, BUFFER_SIZE);
+        if (received_bytes > 0) {
+            printf("Response:\n%s\n", buffer);
+        }
+    }
+}
+
 int main() {
     int sock;
-    char buffer[BUFFER_SIZE];
 
     // Step 1: Initialize the client
     sock = initialize_client();
@@ -71,26 +175,15 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    // Step 2: Notify the Naming Server of client type
     printf("Sending client type\n");
     if (send_request(sock, "CLIENT") < 0) {
         close(sock);
         return EXIT_FAILURE;
     }
 
-    printf("Sending request for accessible paths...\n");
-    if (send_request(sock, "LIST_PATHS") < 0) {
-        close(sock);
-        return EXIT_FAILURE;
-    }
-
-    // Step 3: Receive and display the response
-    ssize_t received_bytes = receive_response(sock, buffer, BUFFER_SIZE);
-    if (received_bytes > 0) {
-        printf("Response from Naming Server:\n%s\n", buffer);
-    } else {
-        close(sock);
-        return EXIT_FAILURE;
-    }
+    // Step 3: Handle client operations
+    handle_operations(sock);
 
     // Step 4: Close the connection
     close(sock);
