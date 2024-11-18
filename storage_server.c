@@ -146,7 +146,7 @@ int connect_and_register(const char *nm_ip, int nm_port) {
     char buffer1[MAX_PATH_SIZE * MAX_PATHS];
     int cur = 0;
     while (fgets(temp, sizeof(temp), fp) != NULL) {
-        int idx = 0;
+        int idx = 14;
         while (temp[idx] != '\0') {
             buffer1[cur++] = temp[idx++];
         }
@@ -165,7 +165,7 @@ int connect_and_register(const char *nm_ip, int nm_port) {
     }
 
     send(sock, buffer1, strlen(buffer1), 0);
-    printf("%s\n", buffer1);
+    printf("%s", buffer1);
 
     pclose(fp);
 

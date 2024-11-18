@@ -14,7 +14,6 @@
 #include <stdbool.h>
 // Custom Headers
 #include "client.h"
-#include "naming_server.h"
 #include "defs.h"
 #include "LRU.h"
 
