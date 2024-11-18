@@ -1,5 +1,5 @@
-#ifndef _CLIENT_H_
-#define _CLIENT_H_
+#ifndef _CLIENT_H
+#define _CLIENT_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,13 +8,15 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
-#define NAMING_SERVER_IP "10.2.141.242" // Replace with actual IP of Naming Server
-#define NAMING_SERVER_PORT 5050         // Replace with actual port of Naming Server
+// Constants
+#define NAMING_SERVER_IP "10.1.100.190"  // Replace with Naming Server's actual IP
+#define NAMING_SERVER_PORT 80         // Replace with Naming Server's actual port
 #define BUFFER_SIZE 1024
 
+// Function Declarations
+void error_exit(const char *message);
 int initialize_client();
 int send_request(int sock, const char *request);
 ssize_t receive_response(int sock, char *buffer, size_t buffer_size);
-void error_exit(const char *message);
 
-#endif // CLIENTS_H
+#endif // CLIENT_H
