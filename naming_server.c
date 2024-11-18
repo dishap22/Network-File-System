@@ -66,8 +66,20 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         char buffer[MAX_PATH_SIZE];
         recv(ssSocket, buffer, MAX_PATH_SIZE, 0);
         sscanf(buffer, "%d", &ss->num_paths);
+        printf("Received %d paths from storage server %d\n", ss->num_paths, ss_number);
+        
+        char all_files[MAX_PATHS * MAX_PATH_SIZE];
+        recv(ssSocket, all_files, MAX_PATHS * MAX_PATH_SIZE, 0);
+
+        char *token = strtok(all_files, "\n");
         for (int i = 0; i < ss->num_paths; i++) {
-            recv(ssSocket, ss->paths[i], MAX_PATH_SIZE, 0);
+            strcpy(ss->paths[i], token);
+            token = strtok(NULL, "\n");
+        }
+
+        printf("Files received: \n");
+        for (int i = 0; i < ss->num_paths; i++) {
+            printf("%s\n", ss->paths[i]);
         }
 
         printf("Storage Server %d connected: %s:%d with %d paths\n", ss_number, ss->ip, ss->port, ss->num_paths);
