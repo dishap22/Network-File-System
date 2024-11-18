@@ -1,6 +1,97 @@
 #include "storage_server.h"
 
-void connect_and_register(const char *nm_ip, int nm_port) {
+int connect_and_register(const char *nm_ip, int nm_port);
+void *handle_client(void *arg);
+void *handle_naming_server(void *arg);
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("Usage: %s <Naming Server IP> <Naming Server Port>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    const char *nm_ip = argv[1];
+    int nm_port = atoi(argv[2]);
+
+    if (nm_port <= 0) {
+        fprintf(stderr, "Invalid port number.\n");
+        return EXIT_FAILURE;
+    }
+
+    int sock = connect_and_register(nm_ip, nm_port);
+    sleep(1);
+    close(sock);
+    printf("Closed connection to Naming Server.\n");
+
+    // Listen for clients
+    struct sockaddr_in ssAddr;
+    memset(&ssAddr, 0, sizeof(ssAddr));
+    ssAddr.sin_family = AF_INET;
+    ssAddr.sin_addr.s_addr = INADDR_ANY;
+    ssAddr.sin_port = htons(8081);
+    
+    int ssSocket;
+    if ((ssSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Socket creation failed");
+        return EXIT_FAILURE;
+    }
+
+    if (bind(ssSocket, (struct sockaddr *)&ssAddr, sizeof(ssAddr)) < 0) {
+        perror("Binding failed");
+        return EXIT_FAILURE;
+    }
+
+    if(listen(ssSocket, MAX_CLIENTS) < 0) {
+        perror("Listening failed");
+        return EXIT_FAILURE;
+    }
+
+    printf("Storage Server started on port %d\n", ntohs(ssAddr.sin_port));
+    int num_clients = 0;
+    while(1) {
+        struct sockaddr_in newAddr;
+        socklen_t addr_size = sizeof(newAddr);
+        int newSocket = accept(ssSocket, (struct sockaddr *)&newAddr, &addr_size);
+        if(newSocket < 0) {
+            perror("Accept failed");
+            return EXIT_FAILURE;
+        }
+
+        char buffer[BUFFER_SIZE];
+        if(recv(newSocket, buffer, BUFFER_SIZE, 0) < 0) {
+            perror("Failed to receive data from client");
+            return EXIT_FAILURE;
+        }
+        
+        if(strncmp(buffer, "CLIENT", 6) == 0) {
+            Client *client = (Client *)malloc(sizeof(Client));
+            client->socket = newSocket;
+            client->addr = newAddr;
+            strcpy(client->ip, inet_ntoa(newAddr.sin_addr));
+            client->port = ntohs(newAddr.sin_port);
+
+            pthread_t tid;
+            pthread_create(&tid, NULL, handle_client, (void *)client);
+            num_clients++;
+        } else if(strncmp(buffer, "NS", 2) == 0) {
+            NamingServer *ns = (NamingServer *)malloc(sizeof(NamingServer));
+            ns->socket = newSocket;
+            ns->addr = newAddr;
+            strcpy(ns->ip, inet_ntoa(newAddr.sin_addr));
+            ns->port = ntohs(newAddr.sin_port);
+
+            pthread_t tid;
+            pthread_create(&tid, NULL, handle_naming_server, (void *)ns);
+        } else {
+            printf("Unknown entity connected\n");
+            close(newSocket);
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int connect_and_register(const char *nm_ip, int nm_port) {
     int sock;
     struct sockaddr_in nmAddr;
     char buffer[BUFFER_SIZE];
@@ -79,29 +170,29 @@ void connect_and_register(const char *nm_ip, int nm_port) {
     pclose(fp);
 
     printf("Number of paths: %d\n", num_paths);
-    while(1) {}
-
-    close(sock);
-    printf("Disconnected from Naming Server.\n");
+    return sock;
 }
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        printf("Usage: %s <Naming Server IP> <Naming Server Port>\n", argv[0]);
-        return EXIT_FAILURE;
+void *handle_client(void *arg) {
+    Client *client = (Client *)arg;
+    printf("Client %s:%d connected\n", client->ip, client->port);
+
+    while(1) {
+        char buffer[BUFFER_SIZE];
+        int bytes_received = recv(client->socket, buffer, BUFFER_SIZE, 0);
+        if (bytes_received <= 0) {
+            printf("Client %s:%d disconnected\n", client->ip, client->port);
+            close(client->socket);
+            break;
+        }
+        buffer[bytes_received] = '\0';
+        printf("Received from client %s:%d - %s\n", client->ip, client->port, buffer);
     }
+    return NULL;
+}
 
-    const char *nm_ip = argv[1];
-    int nm_port = atoi(argv[2]);
-
-    if (nm_port <= 0) {
-        fprintf(stderr, "Invalid port number.\n");
-        return EXIT_FAILURE;
-    }
-
-    connect_and_register(nm_ip, nm_port);
-
-
-
-    return EXIT_SUCCESS;
+void *handle_naming_server(void *arg) {
+    NamingServer *ns = (NamingServer *)arg;
+    printf("Naming Server %s:%d connected\n", ns->ip, ns->port);
+    return NULL;
 }
