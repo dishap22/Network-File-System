@@ -1,6 +1,6 @@
 #include "headers.h"
 
-void connect_and_register(const char *nm_ip, int nm_port) {
+int connect_and_register(const char *nm_ip, int nm_port) {
     int sock;
     struct sockaddr_in nmAddr;
     char buffer[BUFFER_SIZE];
@@ -79,10 +79,8 @@ void connect_and_register(const char *nm_ip, int nm_port) {
     pclose(fp);
 
     printf("Number of paths: %d\n", num_paths);
-    while(1) {}
 
-    close(sock);
-    printf("Disconnected from Naming Server.\n");
+    return sock;
 }
 
 int main(int argc, char *argv[]) {
@@ -99,9 +97,9 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    connect_and_register(nm_ip, nm_port);
+    int sock = connect_and_register(nm_ip, nm_port);
 
-
+    
 
     return EXIT_SUCCESS;
 }

@@ -71,7 +71,12 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    // Step 2: Interact with the Naming Server
+    printf("Sending client type\n");
+    if (send_request(sock, "CLIENT") < 0) {
+        close(sock);
+        return EXIT_FAILURE;
+    }
+
     printf("Sending request for accessible paths...\n");
     if (send_request(sock, "LIST_PATHS") < 0) {
         close(sock);
