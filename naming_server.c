@@ -173,8 +173,7 @@ int main(int argc, char *argv[]) {
 
         char buffer[MAX_PATH_SIZE];
         recv(newSocket, buffer, sizeof(buffer), 0);
-        printf("Received: %s\n", buffer);
-        if (strncmp(buffer, "CLIENT", 5) == 0) {
+        if (strncmp(buffer, "CLIENT", 6) == 0) {
             register_client(newSocket, newAddr);
         } else if (strncmp(buffer, "SS", 2) == 0) {
             register_storage_server(newSocket, newAddr);
