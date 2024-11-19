@@ -15,9 +15,10 @@ pthread_mutex_t ss_mutex = PTHREAD_MUTEX_INITIALIZER;
 // Function to handle client requests
 void *handle_client(void *arg) {
     Client *client = (Client *)arg;
-    char buffer[MAX_PATH_SIZE];
 
     while (1) {
+        char buffer[MAX_PATH_SIZE];
+        memset(buffer, 0, sizeof(buffer));
         int bytes_received = recv(client->socket, buffer, MAX_PATH_SIZE, 0);
         if (bytes_received <= 0) {
             printf("Client %s:%d disconnected\n", client->ip, client->port);
@@ -61,9 +62,10 @@ void *handle_client(void *arg) {
 // Function to handle storage server requests
 void *handle_storage_server(void *arg) {
     StorageServer *ss = (StorageServer *)arg;
-    char buffer[MAX_PATH_SIZE];
 
     while (1) {
+        char buffer[MAX_PATH_SIZE];
+        memset(buffer, 0, sizeof(buffer));
         int bytes_received = recv(ss->socket, buffer, MAX_PATH_SIZE, 0);
         if (bytes_received <= 0) {
             printf("Storage Server %s:%d disconnected\n", ss->ip, ss->port);
@@ -72,6 +74,7 @@ void *handle_storage_server(void *arg) {
         }
         buffer[bytes_received] = '\0';
         printf("Received from storage server %s:%d - %s\n", ss->ip, ss->port, buffer);
+        printf("Bytes received: %d\n", bytes_received);
         // Process storage server messages here
     }
 
@@ -99,7 +102,6 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         char all_files[MAX_PATHS * MAX_PATH_SIZE + 10];
         recv(ssSocket, all_files, MAX_PATHS * MAX_PATH_SIZE + 10, 0);
 
-        char *token = strtok(all_files, "\n");
         for (int i = 0; i < ss->num_paths; i++) {
             char temp[MAX_PATH_SIZE];
             strcpy(temp, "/");
@@ -112,7 +114,7 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         print_trie(fileStructure, 0);
 
         printf("Storage Server %d connected: %s:%d with %d paths\n", ss_number, ss->ip, ss->port, ss->num_paths);
-
+        
         pthread_t ss_thread;
         if (pthread_create(&ss_thread, NULL, handle_storage_server, (void *)ss) != 0) {
             perror("Storage server thread creation failed");
