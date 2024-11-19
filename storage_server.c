@@ -154,25 +154,27 @@ int connect_and_register(const char *nm_ip, int nm_port) {
     int cur = 0;
     while (fgets(temp, sizeof(temp), fp) != NULL) {
         int idx = 14;
-        while (temp[idx] != '\0') {
+        cur = num_paths * MAX_PATH_SIZE;
+        while (temp[idx] != '\n') {
             buffer1[cur++] = temp[idx++];
         }
         buffer1[cur] = '\0';
         num_paths++;
     }
 
-
     printf("Number of paths: %d\n", num_paths);
 
     snprintf(buffer, sizeof(buffer), "%d", num_paths);
-    if (send(sock, buffer, strlen(buffer), 0) < 0) {
+    if (send(sock, buffer, sizeof(buffer), 0) < 0) {
         perror("Failed to send number of paths to Naming Server");
         close(sock);
         exit(EXIT_FAILURE);
     }
 
-    send(sock, buffer1, strlen(buffer1), 0);
-    printf("%s", buffer1);
+    send(sock, buffer1, sizeof(buffer1), 0);
+    for(int i = 0; i < num_paths; i++) {
+        printf("%s\n", buffer1 + i * MAX_PATH_SIZE);
+    }
 
     pclose(fp);
 
@@ -311,7 +313,8 @@ void handle_meta(Client *client) {
         perror("Failed to get file metadata");
     } else {
         // Send metadata: number of lines, number of words, number of characters, date of creation, date of last modification, file size
-        snprintf(confirmation, "%ld %ld %ld %ld %ld %ld", file_stat.st_size, file_stat.st_atime, file_stat.st_mtime, file_stat.st_ctime, file_stat.st_nlink, file_stat.st_mode);
+        char metadata[BUFFER_SIZE];
+        // sprintf(metadata, "%ld %ld %ld %ld %ld %ld", file_stat.st_size, file_stat.st_atime, file_stat.st_mtime, file_stat.st_ctime, file_stat.st_nlink, file_stat.st_blocks);
     }
     send(client->socket, confirmation, strlen(confirmation), 0);
 }
