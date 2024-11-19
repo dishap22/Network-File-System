@@ -5,4 +5,4 @@ client:
 	gcc client.c -o client
 
 storage_server:
-	gcc storage_server.c data.c -o storage_server -lpthread
+	gcc storage_server.c -o storage_server 
