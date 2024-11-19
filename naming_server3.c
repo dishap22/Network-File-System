@@ -68,12 +68,30 @@ void *handle_client(void *arg) {
     
     while (1) {
         if (receive_request(client->socket, operation, MAX_PATH_SIZE) <= 0) {
-            printf("Client %s:%d disconnected\n", client->ip, client->port);
+            FILE *log = fopen("server-log.txt", "a");
+            if (log != NULL) {
+                time_t now = time(NULL);
+                struct tm *tm = localtime(&now);
+                char time_str[64];
+                strftime(time_str, sizeof(time_str), "%c", tm);
+                fprintf(log, "Client %d disconnected: %s:%d at %s\n", client_number, client->ip, client->port, time_str);
+                fclose(log);
+            }
+
             close(client->socket);
             break;
         }
         if (receive_request(client->socket, filepath, MAX_PATH_SIZE) <= 0) {
             printf("Client %s:%d disconnected\n", client->ip, client->port);
+            FILE *log = fopen("server-log.txt", "a");
+            if (log != NULL) {
+                time_t now = time(NULL);
+                struct tm *tm = localtime(&now);
+                char time_str[64];
+                strftime(time_str, sizeof(time_str), "%c", tm);
+                fprintf(log, "Client %d disconnected: %s:%d at %s\n", client_number, client->ip, client->port, time_str);
+                fclose(log);
+            }
             close(client->socket);
             break;
         }
@@ -137,6 +155,15 @@ void *handle_storage_server(void *arg) {
         int bytes_received = recv(ss->socket, buffer, MAX_PATH_SIZE - 1, 0);
         if (bytes_received <= 0) {
             printf("Storage Server %s:%d disconnected\n", ss->ip, ss->port);
+            FILE *log = fopen("server-log.txt", "a");
+            if (log != NULL) {
+                time_t now = time(NULL);
+                struct tm *tm = localtime(&now);
+                char time_str[64];
+                strftime(time_str, sizeof(time_str), "%c", tm);
+                fprintf(log, "Storage server %d connected: %s:%d at %s\n", ss_number, ss->ip, ss->port, time_str);
+                fclose(log);
+            }
             close(ss->socket);
             break;
         }
@@ -156,6 +183,15 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         ss->addr = ssAddr;
         inet_ntop(AF_INET, &ssAddr.sin_addr, ss->ip, sizeof(ss->ip));
         ss->port = ntohs(ssAddr.sin_port);
+        FILE *log = fopen("server-log.txt", "a");
+        if (log != NULL) {
+            time_t now = time(NULL);
+            struct tm *tm = localtime(&now);
+            char time_str[64];
+            strftime(time_str, sizeof(time_str), "%c", tm);
+            fprintf(log, "Storage server %d connected: %s:%d at %s\n", ss_number, ss->ip, ss->port, time_str);
+            fclose(log);
+        }
         char buffer[MAX_PATH_SIZE];
         recv(ssSocket, buffer, MAX_PATH_SIZE - 1, 0);
         buffer[MAX_PATH_SIZE - 1] = '\0';
@@ -207,6 +243,16 @@ void register_client(int clientSocket, struct sockaddr_in clientAddr) {
         client->port = ntohs(clientAddr.sin_port);
 
         printf("Client %d connected: %s:%d\n", client_number, client->ip, client->port);
+        // Log to server-log.txt with ip and time
+        FILE *log = fopen("server-log.txt", "a");
+        if (log != NULL) {
+            time_t now = time(NULL);
+            struct tm *tm = localtime(&now);
+            char time_str[64];
+            strftime(time_str, sizeof(time_str), "%c", tm);
+            fprintf(log, "Client %d connected: %s:%d at %s\n", client_number, client->ip, client->port, time_str);
+            fclose(log);
+        }
 
         pthread_t client_thread;
         if (pthread_create(&client_thread, NULL, handle_client, (void *)client) != 0) {
