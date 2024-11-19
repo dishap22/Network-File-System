@@ -84,12 +84,12 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
 
         printf("Storage Server %d connected: %s:%d with %d paths\n", ss_number, ss->ip, ss->port, ss->num_paths);
 
-        pthread_t ss_thread;
-        if (pthread_create(&ss_thread, NULL, handle_storage_server, (void *)ss) != 0) {
-            perror("Storage server thread creation failed");
-        } else {
-            pthread_detach(ss_thread);
-        }
+        // pthread_t ss_thread;
+        // if (pthread_create(&ss_thread, NULL, handle_storage_server, (void *)ss) != 0) {
+        //     perror("Storage server thread creation failed");
+        // } else {
+        //     pthread_detach(ss_thread);
+        // }
     } else {
         printf("Max storage servers reached. Connection refused: %s:%d\n", inet_ntoa(ssAddr.sin_addr), ntohs(ssAddr.sin_port));
         close(ssSocket);
