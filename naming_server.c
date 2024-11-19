@@ -69,10 +69,12 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         printf("Received %d paths from storage server %d\n", ss->num_paths, ss_number);
         
         char all_files[MAX_PATHS * MAX_PATH_SIZE + 10];
+        memset(all_files, 0, sizeof(all_files));
         recv(ssSocket, all_files, MAX_PATHS * MAX_PATH_SIZE + 10, 0);
 
         // char *token = strtok(all_files, "\n");
         for (int i = 0; i < ss->num_paths; i++) {
+            memset(ss->paths[i], 0, sizeof(ss->paths[i]));
             strcpy(ss->paths[i], all_files + i * MAX_PATH_SIZE);
             // token = strtok(NULL, "\n");
         }
@@ -84,12 +86,12 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
 
         printf("Storage Server %d connected: %s:%d with %d paths\n", ss_number, ss->ip, ss->port, ss->num_paths);
 
-        pthread_t ss_thread;
-        if (pthread_create(&ss_thread, NULL, handle_storage_server, (void *)ss) != 0) {
-            perror("Storage server thread creation failed");
-        } else {
-            pthread_detach(ss_thread);
-        }
+        // pthread_t ss_thread;
+        // if (pthread_create(&ss_thread, NULL, handle_storage_server, (void *)ss) != 0) {
+        //     perror("Storage server thread creation failed");
+        // } else {
+        //     pthread_detach(ss_thread);
+        // }
     } else {
         printf("Max storage servers reached. Connection refused: %s:%d\n", inet_ntoa(ssAddr.sin_addr), ntohs(ssAddr.sin_port));
         close(ssSocket);

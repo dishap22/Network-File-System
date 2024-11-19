@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
 
     int sock = connect_and_register(nm_ip, nm_port);
     sleep(1);
-    close(sock);
+    // close(sock);
     printf("Closed connection to Naming Server.\n");
 
     // Listen for clients
@@ -148,9 +148,11 @@ int connect_and_register(const char *nm_ip, int nm_port) {
     }
 
     char temp[MAX_PATH_SIZE];
+    memset(temp, 0, sizeof(temp));
 
     int num_paths = 0;
     char buffer1[MAX_PATH_SIZE * MAX_PATHS];
+    memset(buffer1, 0, sizeof(buffer1));
     int cur = 0;
     while (fgets(temp, sizeof(temp), fp) != NULL) {
         int idx = 14;
@@ -160,6 +162,7 @@ int connect_and_register(const char *nm_ip, int nm_port) {
         }
         buffer1[cur] = '\0';
         num_paths++;
+        memset(temp, 0, sizeof(temp));
     }
 
     printf("Number of paths: %d\n", num_paths);
