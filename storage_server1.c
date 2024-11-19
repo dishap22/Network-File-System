@@ -1,6 +1,5 @@
 #include "storage_server.h"
 
-int recv_all(int socket, void *buffer, size_t length);
 int connect_and_register(const char *nm_ip, int nm_port);
 void *handle_client(void *arg);
 void *handle_naming_server(void *arg);
@@ -17,6 +16,7 @@ int main(int argc, char *argv[]) {
         printf("Usage: %s <Naming Server IP> <Naming Server Port>\n", argv[0]);
         return EXIT_FAILURE;
     }
+
     const char *nm_ip = argv[1];
     int nm_port = atoi(argv[2]);
 
@@ -27,10 +27,7 @@ int main(int argc, char *argv[]) {
 
     int sock = connect_and_register(nm_ip, nm_port);
     sleep(1);
-    printf("Why :sob:\n");
-    
     // close(sock);
-
     printf("Closed connection to Naming Server.\n");
 
     // Listen for clients
@@ -101,21 +98,6 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
-ssize_t send_all(int sock, const void *buffer, size_t length) {
-    size_t total_sent = 0;   // Total bytes sent
-    const char *ptr = buffer;
-
-    while (total_sent < length) {
-        ssize_t sent = send(sock, ptr + total_sent, length - total_sent, 0);
-        if (sent < 0) {
-            perror("send failed");
-            return -1; // Error occurred
-        }
-        total_sent += sent; // Update total sent
-    }
-    return total_sent;
-}
-
 int connect_and_register(const char *nm_ip, int nm_port) {
     int sock;
     struct sockaddr_in nmAddr;
@@ -169,18 +151,35 @@ int connect_and_register(const char *nm_ip, int nm_port) {
     memset(temp, 0, sizeof(temp));
 
     int num_paths = 0;
-    char buffer1[MAX_PATH_SIZE * MAX_PATHS];
-    memset(buffer1, 0, sizeof(buffer1));
-    int cur = 0;
     while (fgets(temp, sizeof(temp), fp) != NULL) {
-        int idx = 14;
-        cur = num_paths * MAX_PATH_SIZE;
-        while (temp[idx] != '\n') {
-            buffer1[cur++] = temp[idx++];
-        }
-        buffer1[cur] = '\0';
         num_paths++;
+    }
+
+    pclose(fp);
+
+    fp = popen("find storage_space/*", "r");
+    if (fp == NULL) {
+        perror("Failed to execute find command");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+    Paths paths[num_paths];
+    for (int i = 0; i < num_paths; i++) {
+        paths[i].id = i + 1;
+        char temp[MAX_PATH_SIZE];
         memset(temp, 0, sizeof(temp));
+        fgets(temp, sizeof(temp), fp);
+        temp[strlen(temp) - 1] = '\0';
+        strcpy(paths[i].path, temp + 13);
+        int end = MAX_PATH_SIZE - 1;
+        while(paths[i].path[end] == '\0') {
+            paths[i].path[end] = '\0';
+            end--;
+        }
+    }
+
+    for (int i = 0; i < num_paths; i++) {
+        printf("%s\n", paths[i].path);
     }
 
     printf("Number of paths: %d\n", num_paths);
@@ -192,17 +191,24 @@ int connect_and_register(const char *nm_ip, int nm_port) {
         exit(EXIT_FAILURE);
     }
 
-    size_t buffer_size = num_paths * MAX_PATH_SIZE;
-    if (send_all(sock, buffer1, buffer_size) < 0) {
-        perror("Failed to send paths to Naming Server");
-        close(sock);
-        exit(EXIT_FAILURE);
-    }
-    for(int i = 0; i < num_paths; i++) {
-        printf("%s\n", buffer1 + i * MAX_PATH_SIZE);
+    int cnt = 0;
+    while(cnt != num_paths) {
+        for(int i = 0; i < num_paths; i++) {
+            if(send(sock, &paths[i], sizeof(Paths), 0) < 0) {
+                perror("Failed to send paths to Naming Server");
+                close(sock);
+                exit(EXIT_FAILURE);
+            }
+        }
+        char count[MAX_NAME_SIZE];
+        memset(count, 0, sizeof(count));
+        recv(sock, count, sizeof(count), 0);
+        sscanf(count, "%d", &cnt);
     }
 
     pclose(fp);
+
+    printf("Number of paths: %d\n", num_paths);
     return sock;
 }
 
@@ -240,7 +246,7 @@ void *handle_client(void *arg) {
         close(client->socket);
         return NULL;
     }
-    printf("Type: %d\n", type);
+
     sleep(1);
     close(client->socket);
 
@@ -257,7 +263,6 @@ void *handle_naming_server(void *arg) {
 
 // Function to handle client requests
 void handle_read(Client *client) {
-    printf("Testing read\n");
     char path[BUFFER_SIZE];
     char confirmation[BUFFER_SIZE];
 

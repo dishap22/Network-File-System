@@ -41,4 +41,9 @@ typedef struct {
     int port;
 } Client;
 
+typedef struct {
+    int id;
+    char path[MAX_PATH_SIZE];
+} Paths;
+
 #endif
