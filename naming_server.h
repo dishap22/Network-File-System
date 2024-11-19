@@ -31,6 +31,7 @@ typedef struct {
     int num_paths;
     char paths[MAX_PATHS][MAX_PATH_SIZE];
     trie* paths_trie;
+    int alive_flag; // 1 if alive, 0 if dead
 } StorageServer;
 
 typedef struct {
