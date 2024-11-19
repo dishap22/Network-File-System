@@ -52,22 +52,35 @@ int connect_to_storage_server(const char *ss_ip, int ss_port) {
 
 // Function to send a request to the Storage Server
 int send_request(int sock, const char *request) {
-    if (send(sock, request, sizeof(request), 0) < 0) {
-        perror("Failed to send request");
-        return -1;
+    size_t length = strlen(request); // Get the actual length of the request
+    const char *ptr = request;
+    size_t remaining = length;
+
+    while (remaining > 0) {
+        ssize_t sent = send(sock, ptr, remaining, 0);
+        if (sent < 0) {
+            perror("Failed to send request");
+            return -1;
+        }
+        ptr += sent;
+        remaining -= sent;
     }
+
     printf("Request sent: %s\n", request);
     return 0;
 }
 
 // Function to receive a response from the Storage Server
 ssize_t receive_response(int sock, char *buffer, size_t buffer_size) {
+    printf("Here\n");
     memset(buffer, 0, buffer_size);
     ssize_t received_bytes = recv(sock, buffer, buffer_size - 1, 0);
+    printf("Here2\n");
     if (received_bytes < 0) {
         perror("Failed to receive response");
         return -1;
     }
+    printf("meow\n");
     buffer[received_bytes] = '\0'; // Null-terminate the received string
     return received_bytes;
 }
@@ -105,11 +118,22 @@ void perform_operations(int ss_sock) {
             if (send_request(ss_sock, "READ") < 0) {
                 break;
             }
-
+            send_request(ss_sock,file_path);
             ssize_t received_bytes = receive_response(ss_sock, buffer, BUFFER_SIZE);
             if (received_bytes > 0) {
                 printf("File Content:\n%s\n", buffer);
-            } else {
+            }else if(received_bytes==0){
+               printf("Received Nothing\n");
+             }else {
+                break;
+            }
+            //send_request(ss_sock,file_path);
+            received_bytes = receive_response(ss_sock, buffer, BUFFER_SIZE);
+            if (received_bytes > 0) {
+                printf("File Content:\n%s\n", buffer);
+            }else if(received_bytes==0){
+               printf("Received Nothing\n");
+             }else {
                 break;
             }
         } else if (choice == 2) {
