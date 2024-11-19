@@ -1,4 +1,6 @@
 #include "naming_server.h"
+#include <time.h>
+#include <stdlib.h>
 
 int ss_number = 0;
 int client_number = 0;
@@ -7,6 +9,13 @@ Client clients[MAX_CLIENTS];
 StorageServer storageServers[MAX_STORAGE_SERVERS];
 
 #define MAX_RESPONSE_SIZE 128
+
+typedef struct {
+    int primary;
+    int backup;
+} BackupPair;
+
+BackupPair backupServers[MAX_STORAGE_SERVERS];
 
 trie *fileStructure;
 
@@ -30,6 +39,26 @@ int receive_request(int sock, char *buffer, size_t max_len) {
     }
     buffer[len] = '\0';
     return len;
+}
+
+void assign_backup(int server_id) {
+    if (ss_number < 2) {
+        backupServers[server_id].primary = -1;
+        backupServers[server_id].backup = -1;
+        return; // Not enough servers for backup assignment
+    }
+
+    int backup1, backup2;
+    do {
+        backup1 = rand() % ss_number;
+    } while (backup1 == server_id);
+
+    do {
+        backup2 = rand() % ss_number;
+    } while (backup2 == server_id || backup2 == backup1);
+
+    backupServers[server_id].primary = backup1;
+    backupServers[server_id].backup = backup2;
 }
 
 void *handle_client(void *arg) {
@@ -96,34 +125,6 @@ void *handle_client(void *arg) {
                 printf("Sent FILE_NOT_FOUND error code to client %s:%d\n", client->ip, client->port);
             }
         }
-        else {
-            int server_x = -1;
-            pthread_mutex_lock(&cache_mutex);
-            server_x = searchCache(NULL, filepath);
-            pthread_mutex_unlock(&cache_mutex);
-            if (server_x == -1) {
-                trie* foundNode = search_path(fileStructure, filepath);
-                if (foundNode != NULL) {
-                    server_x = foundNode->server_x;
-                    pthread_mutex_lock(&cache_mutex);
-                    insertCacheNode(NULL, filepath, server_x);
-                    pthread_mutex_unlock(&cache_mutex);
-                } else {
-                    int error_code = htonl(FILE_NOT_FOUND);
-                    send(client->socket, &error_code, sizeof(error_code), 0);
-                    printf("Sent FILE_NOT_FOUND error code to client %s:%d\n", client->ip, client->port);
-                    continue;
-                }
-            }
-            char *server_ip = storageServers[server_x].ip;
-            int server_port = storageServers[server_x].port;
-            char response[MAX_RESPONSE_SIZE];
-            snprintf(response, sizeof(response), "SERVER %s:%d", server_ip, server_port);
-            int response_len = htonl(strlen(response));
-            send(client->socket, &response_len, sizeof(response_len), 0);
-            send(client->socket, response, strlen(response), 0);
-            printf("Sent server info to client %s:%d - %s\n", client->ip, client->port, response);
-        }
     }
     return NULL;
 }
@@ -171,8 +172,10 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
             addto(fileStructure, temp, ss_number);
         }
 
-        printf("Files received: \n");
-        print_trie(fileStructure, 0);
+        assign_backup(ss_number);
+
+        printf("Backup servers for storage server %d: %d (primary), %d (backup)\n", ss_number,
+               backupServers[ss_number].primary, backupServers[ss_number].backup);
 
         printf("Storage Server %d connected: %s:%d with %d paths\n", ss_number, ss->ip, ss->port, ss->num_paths);
 
@@ -192,33 +195,9 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
     pthread_mutex_unlock(&ss_mutex);
 }
 
-void register_client(int clientSocket, struct sockaddr_in clientAddr) {
-    pthread_mutex_lock(&clients_mutex);
-
-    if (client_number < MAX_CLIENTS) {
-        Client *client = &clients[client_number];
-        client->socket = clientSocket;
-        client->addr = clientAddr;
-        inet_ntop(AF_INET, &clientAddr.sin_addr, client->ip, sizeof(client->ip));
-        client->port = ntohs(clientAddr.sin_port);
-        printf("Client %d connected: %s:%d\n", client_number, client->ip, client->port);
-        pthread_t client_thread;
-        if (pthread_create(&client_thread, NULL, handle_client, (void *)client) != 0) {
-            perror("Client thread creation failed");
-        } else {
-            pthread_detach(client_thread);
-        }
-
-        client_number++;
-    } else {
-        printf("Max clients reached. Connection refused: %s:%d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
-        close(clientSocket);
-    }
-
-    pthread_mutex_unlock(&clients_mutex);
-}
-
 int main(int argc, char *argv[]) {
+    srand(time(NULL)); // Initialize random seed for backup assignment
+
     fileStructure = create_node("/", NULL, -1);
     cache = createCache();
 
