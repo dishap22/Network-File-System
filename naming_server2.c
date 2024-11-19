@@ -62,6 +62,8 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         inet_ntop(AF_INET, &ssAddr.sin_addr, ss->ip, sizeof(ss->ip));
         ss->port = ntohs(ssAddr.sin_port);
 
+        ss-> paths_trie = create_node("/", NULL, ss_number);
+
         // Receive additional details from the storage server
         char buffer[MAX_PATH_SIZE];
         recv(ssSocket, buffer, MAX_PATH_SIZE, 0);
@@ -73,14 +75,14 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
 
         char *token = strtok(all_files, "\n");
         for (int i = 0; i < ss->num_paths; i++) {
-            strcpy(ss->paths[i], token);
-            token = strtok(NULL, "\n");
+            if (token) {
+                addto(ss->paths_trie, token, ss_number);
+                token = strtok(NULL, "\n");
+            }
         }
 
         printf("Files received: \n");
-        for (int i = 0; i < ss->num_paths; i++) {
-            printf("%s\n", ss->paths[i]);
-        }
+        print_trie(ss->paths_trie, 0);
 
         printf("Storage Server %d connected: %s:%d with %d paths\n", ss_number, ss->ip, ss->port, ss->num_paths);
 
