@@ -37,4 +37,9 @@ typedef struct {
     int port;
 } NamingServer;
 
+typedef struct {
+    int id;
+    char path[MAX_PATH_SIZE];
+} Paths;
+
 #endif

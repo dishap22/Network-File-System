@@ -98,16 +98,35 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         recv(ssSocket, buffer, MAX_PATH_SIZE, 0);
         sscanf(buffer, "%d", &ss->num_paths);
         printf("Received %d paths from storage server %d\n", ss->num_paths, ss_number);
-        
-        char all_files[MAX_PATHS * MAX_PATH_SIZE + 10];
-        recv(ssSocket, all_files, MAX_PATHS * MAX_PATH_SIZE + 10, 0);
 
-        for (int i = 0; i < ss->num_paths; i++) {
-            char temp[MAX_PATH_SIZE];
-            strcpy(temp, "/");
-            strcat(temp, all_files + i * MAX_PATH_SIZE);
-            printf("%s\n", temp);
-            addto(fileStructure, temp, ss_number);
+        int hash[ss->num_paths];
+        for(int i = 0; i < ss->num_paths; i++) {
+            hash[i] = 0;
+        }
+        while(1) {
+            int cnt = 0;
+            for(int i = 0; i < ss->num_paths; i++) {
+                Paths temp;
+                memset(&temp, 0, sizeof(Paths));
+                recv(ssSocket, &temp, sizeof(Paths), 0);
+                if(temp.id != 0) {
+                    hash[temp.id - 1] = 1;
+                    strcpy(ss->paths[temp.id - 1], temp.path);
+                    cnt++;
+                }
+            }
+            char count[MAX_NAME_SIZE];
+            memset(count, 0, sizeof(count));
+            sprintf(count, "%d", cnt);
+            send(ssSocket, count, sizeof(count), 0);
+            if(cnt == ss->num_paths) {
+                break;
+            }
+        }
+
+        for(int i = 0; i < ss->num_paths; i++) {
+            printf("Adding %s\n", ss->paths[i]);
+            addto(fileStructure, ss->paths[i], ss_number);
         }
 
         printf("Files received: \n");
