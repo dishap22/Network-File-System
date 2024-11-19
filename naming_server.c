@@ -69,10 +69,12 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
         printf("Received %d paths from storage server %d\n", ss->num_paths, ss_number);
         
         char all_files[MAX_PATHS * MAX_PATH_SIZE + 10];
+        memset(all_files, 0, sizeof(all_files));
         recv(ssSocket, all_files, MAX_PATHS * MAX_PATH_SIZE + 10, 0);
 
         // char *token = strtok(all_files, "\n");
         for (int i = 0; i < ss->num_paths; i++) {
+            memset(ss->paths[i], 0, sizeof(ss->paths[i]));
             strcpy(ss->paths[i], all_files + i * MAX_PATH_SIZE);
             // token = strtok(NULL, "\n");
         }
