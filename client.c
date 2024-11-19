@@ -92,16 +92,14 @@ ssize_t receive_response(int sock, char *buffer, size_t buffer_size) {
     return received_bytes;
 }
 
-// Handle client operations
+// Handle file operations with the Storage Server
 void handle_operations(int ss_sock) {
     char buffer[BUFFER_SIZE];
     char request[BUFFER_SIZE];
-
-    while (1) {
         printf("\nChoose an operation:\n");
         printf("1. Read File\n");
         printf("2. Write File\n");
-        printf("3. Exit\n");
+        printf("3. Exit to enter new path\n");
         printf("Enter your choice: ");
         int choice;
         scanf("%d", &choice);
@@ -110,31 +108,25 @@ void handle_operations(int ss_sock) {
             case 1: { // Read file
                 char path[BUFFER_SIZE];
                 printf("Enter file path to read: ");
-                fgets(path, sizeof(path), stdin);
-                path[strcspn(path, "\n")] = '\0'; // Remove trailing newline
+                scanf(" %[^\n]", path); // Read string with spaces
                 snprintf(request, sizeof(request), "READ %s", path);
-                break;
             }
 
             case 2: { // Write file
                 char path[BUFFER_SIZE], data[BUFFER_SIZE];
                 printf("Enter file path to write: ");
-                fgets(path, sizeof(path), stdin);
-                path[strcspn(path, "\n")] = '\0';
+                scanf(" %[^\n]", path);
                 printf("Enter data to write: ");
-                fgets(data, sizeof(data), stdin);
-                data[strcspn(data, "\n")] = '\0';
+                scanf(" %[^\n]", data);
                 snprintf(request, sizeof(request), "WRITE %s %s", path, data);
-                break;
             }
 
-            case 3: // Exit
-                printf("Exiting...\n");
+            case 3: // Exit to enter new path
+                printf("Returning to main menu...\n");
                 return;
 
             default:
                 printf("Invalid choice. Try again.\n");
-                continue;
         }
 
         if (send_request(ss_sock, request) < 0) {
@@ -146,7 +138,6 @@ void handle_operations(int ss_sock) {
         if (received_bytes > 0) {
             printf("Response:\n%s\n", buffer);
         }
-    }
 }
 
 int main() {
@@ -157,40 +148,50 @@ int main() {
 
     nm_sock = initialize_client();
 
-    printf("Sending client type\n");
-    if (send_request(nm_sock, "CLIENT") < 0) {
-        close(nm_sock);
-        return EXIT_FAILURE;
+    while (1) {
+        char file_path[BUFFER_SIZE];
+
+        // Request file path from the user
+        printf("\nEnter the file path (or type 'EXIT' to quit): ");
+        scanf(" %[^\n]", file_path); // Read string with spaces
+
+        if (strcasecmp(file_path, "EXIT") == 0) {
+            break;
+        }
+
+        // Send request to Naming Server for Storage Server details
+        snprintf(buffer, sizeof(buffer), "GET_SERVER %s", file_path);
+        if (send_request(nm_sock, buffer) < 0) {
+            close(nm_sock);
+            return EXIT_FAILURE;
+        }
+
+        // Receive Storage Server details
+        ssize_t received_bytes = receive_response(nm_sock, buffer, BUFFER_SIZE);
+        if (received_bytes > 0) {
+            printf("Response from Naming Server:\n%s\n", buffer);
+        } else {
+            printf("Failed to get response from Naming Server. Try again.\n");
+            continue;
+        }
+
+        // Parse the Storage Server details
+        if (sscanf(buffer, "%s %d", ss_ip, &ss_port) != 2) {
+            printf("Invalid response from Naming Server. Try again.\n");
+            continue;
+        }
+
+        // Connect to the Storage Server
+        ss_sock = connect_to_storage_server(ss_ip, ss_port);
+
+        // Handle operations with the Storage Server
+        handle_operations(ss_sock);
+
+        // Close connection with Storage Server
+        close(ss_sock);
     }
 
-    //request paths and Storage Server details
-    printf("Requesting accessible paths...\n");
-    if (send_request(nm_sock, "LIST_PATHS") < 0) {
-        close(nm_sock);
-        return EXIT_FAILURE;
-    }
-
-    ssize_t received_bytes = receive_response(nm_sock, buffer, BUFFER_SIZE);
-    if (received_bytes > 0) {
-        printf("Response from Naming Server:\n%s\n", buffer);
-    } else {
-        close(nm_sock);
-        return EXIT_FAILURE;
-    }
-
-    //getting the storage server details
-    sscanf(buffer, "%s %d", ss_ip, &ss_port); // "<IP> <Port>" (This is the format im assuming it to be in)
-
-    // connect to storage server based off of details recieved by the naming server
-    ss_sock = connect_to_storage_server(ss_ip, ss_port);
-
-    //handling options using the storage server
-    handle_operations(ss_sock);
-
-    //close connection with storage server
-    close(ss_sock);
     close(nm_sock);
-    printf("Connection closed. Exiting...\n");
-
+    printf("Connection to Naming Server closed. Exiting...\n");
     return EXIT_SUCCESS;
 }
