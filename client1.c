@@ -145,6 +145,7 @@ void delete_file(const char *file_path) {
 void perform_operations(int ss_sock) {
     char buffer[BUFFER_SIZE];
     char file_path[BUFFER_SIZE];
+    char dest_path[BUFFER_SIZE];
 
     while (1) {
         int choice;
@@ -156,12 +157,13 @@ void perform_operations(int ss_sock) {
         printf("3. Zip File\n");
         printf("4. Unzip File\n");
         printf("5. Delete File\n");
-        printf("6. Exit\n");
+        printf("6. Copy File\n");
+        printf("7. Exit\n");
         printf("Enter your choice: ");
         scanf("%d", &choice);
         getchar(); // Consume the leftover newline character
 
-        if (choice == 6) {
+        if (choice == 7) {
             printf("Exiting...\n");
             break;
         }
@@ -205,21 +207,67 @@ void perform_operations(int ss_sock) {
                 // Delete file
                 delete_file(file_path);
                 break;
+            case 6: 
+                printf("Enter destination path: ");
+                fgets(dest_path, sizeof(dest_path), stdin);
+                dest_path[strcspn(dest_path, "\n")] = '\0';
+                copy_file(file_path,dest_path);
             default:
                 printf("Invalid choice. Try again.\n");
         }
     }
 }
 
+void copy_file(const char *src_file, const char *dest_dir) {
+    char zip_file[BUFFER_SIZE];
+    char dest_file[BUFFER_SIZE];
+    char command[BUFFER_SIZE];
+
+    // Step 1: Zip the source file
+    snprintf(zip_file, sizeof(zip_file), "%s.zip", src_file);
+    snprintf(command, sizeof(command), "zip -j %s %s", zip_file, src_file);
+    if (system(command) != 0) {
+        fprintf(stderr, "Failed to zip the source file: %s\n", src_file);
+        return;
+    }
+    printf("Zipped file created: %s\n", zip_file);
+
+    // Step 2: Move the zipped file to the destination directory
+    snprintf(dest_file, sizeof(dest_file), "%s/%s", dest_dir, strrchr(zip_file, '/') ? strrchr(zip_file, '/') + 1 : zip_file);
+    snprintf(command, sizeof(command), "mv %s %s", zip_file, dest_file);
+    if (system(command) != 0) {
+        fprintf(stderr, "Failed to move the zipped file to the destination directory: %s\n", dest_dir);
+        return;
+    }
+    printf("Zipped file moved to: %s\n", dest_file);
+
+    // Step 3: Unzip the file at the destination
+    snprintf(command, sizeof(command), "unzip -o %s -d %s", dest_file, dest_dir);
+    if (system(command) != 0) {
+        fprintf(stderr, "Failed to unzip the file at the destination: %s\n", dest_dir);
+        return;
+    }
+    printf("File unzipped at destination: %s\n", dest_dir);
+
+    // Step 4: Delete the zipped file at the destination
+    snprintf(command, sizeof(command), "rm %s", dest_file);
+    if (system(command) != 0) {
+        fprintf(stderr, "Failed to delete the zipped file: %s\n", dest_file);
+        return;
+    }
+    printf("Zipped file deleted: %s\n", dest_file);
+
+    printf("File successfully copied from %s to %s\n", src_file, dest_dir);
+}
+
+
 int main() {
     char ss_ip[INET_ADDRSTRLEN];
-    int ss_port;
+    int ss_port = 8081;
 
     // Get Storage Server IP and port from the user
     printf("Enter Storage Server IP: ");
     scanf("%s", ss_ip);
-    printf("Enter Storage Server Port: ");
-    scanf("%d", &ss_port);
 
     // Connect to the Storage Server
     int ss_sock = connect_to_storage_server(ss_ip, ss_port);
