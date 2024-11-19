@@ -10,6 +10,9 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <stdbool.h>
+#include <sys/stat.h>
+#include <zlib.h>
 
 #define MAX_CLIENTS 100
 #define MAX_STORAGE_SERVERS 100
@@ -18,6 +21,7 @@
 #define MAX_FILE_SIZE 1024 // max length for file content
 #define MAX_PATHS 100 // max number of paths in a storage server
 #define BUFFER_SIZE 1024
+#define FILE_SIZE 1024
 
 typedef struct {
     int socket;
