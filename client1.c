@@ -70,6 +70,33 @@ int send_request(int sock, const char *request) {
     return 0;
 }
 
+int send_request1(int sock, const char *request) {
+    size_t length = strlen(request);
+
+    // Send the length of the request
+    size_t length_network_order = htonl(length);
+    if (send(sock, &length_network_order, sizeof(length_network_order), 0) < 0) {
+        perror("Failed to send length");
+        return -1;
+    }
+
+    // Send the actual data
+    const char *ptr = request;
+    size_t remaining = length;
+    while (remaining > 0) {
+        ssize_t sent = send(sock, ptr, remaining, 0);
+        if (sent < 0) {
+            perror("Failed to send request");
+            return -1;
+        }
+        ptr += sent;
+        remaining -= sent;
+    }
+
+    printf("Request sent: %s\n", request);
+    return 0;
+}
+
 // Function to receive a response from the Storage Server
 ssize_t receive_response(int sock, char *buffer, size_t buffer_size) {
     memset(buffer, 0, buffer_size);
@@ -78,31 +105,29 @@ ssize_t receive_response(int sock, char *buffer, size_t buffer_size) {
         perror("Failed to receive response");
         return -1;
     }
-    buffer[received_bytes] = '\0'; // Null-terminate the received string
+    buffer[received_bytes] = '\0';
     return received_bytes;
 }
 
-// Function to perform file zipping
+// Function to zip a file
 void zip_file(const char *file_path) {
     char command[BUFFER_SIZE];
     snprintf(command, sizeof(command), "zip %s.zip %s", file_path, file_path);
-    int result = system(command);
-    if (result == 0) {
-        printf("File successfully zipped: %s.zip\n", file_path);
+    if (system(command) == 0) {
+        printf("File zipped successfully: %s.zip\n", file_path);
     } else {
-        printf("Failed to zip file: %s\n", file_path);
+        fprintf(stderr, "Failed to zip file: %s\n", file_path);
     }
 }
 
-// Function to perform file unzipping
+// Function to unzip a file
 void unzip_file(const char *file_path) {
     char command[BUFFER_SIZE];
-    snprintf(command, sizeof(command), "unzip %s.zip", file_path);
-    int result = system(command);
-    if (result == 0) {
-        printf("File successfully unzipped: %s\n", file_path);
+    snprintf(command, sizeof(command), "unzip %s", file_path);
+    if (system(command) == 0) {
+        printf("File unzipped successfully: %s\n", file_path);
     } else {
-        printf("Failed to unzip file: %s.zip\n", file_path);
+        fprintf(stderr, "Failed to unzip file: %s\n", file_path);
     }
 }
 
@@ -110,21 +135,20 @@ void unzip_file(const char *file_path) {
 void delete_file(const char *file_path) {
     char command[BUFFER_SIZE];
     snprintf(command, sizeof(command), "rm %s", file_path);
-    int result = system(command);
-    if (result == 0) {
-        printf("File successfully deleted: %s\n", file_path);
+    if (system(command) == 0) {
+        printf("File deleted successfully: %s\n", file_path);
     } else {
-        printf("Failed to delete file: %s\n", file_path);
+        fprintf(stderr, "Failed to delete file: %s\n", file_path);
     }
 }
 
-// Function to perform operations with the Storage Server
 void perform_operations(int ss_sock) {
     char buffer[BUFFER_SIZE];
     char file_path[BUFFER_SIZE];
 
     while (1) {
         int choice;
+
         // Display menu
         printf("\nChoose an operation:\n");
         printf("1. Read File\n");
@@ -142,48 +166,45 @@ void perform_operations(int ss_sock) {
             break;
         }
 
-        if (choice >= 1 && choice <= 5) {
-            printf("Enter file path: ");
-            fgets(file_path, sizeof(file_path), stdin);
-            file_path[strcspn(file_path, "\n")] = '\0'; // Remove trailing newline
-        }
+        // Get the file path
+        printf("Enter file path: ");
+        fgets(file_path, sizeof(file_path), stdin);
+        file_path[strcspn(file_path, "\n")] = '\0';
 
         switch (choice) {
-            case 1: // READ
+            case 1:
+                // READ operation
                 send_request(ss_sock, "READ");
-                send_request(ss_sock, file_path);
-                ssize_t received_bytes = receive_response(ss_sock, buffer, BUFFER_SIZE);
-                if (received_bytes > 0) {
+                send_request1(ss_sock, file_path);
+                if (receive_response(ss_sock, buffer, BUFFER_SIZE) > 0) {
                     printf("File Content:\n%s\n", buffer);
-                } else {
-                    printf("Failed to read file.\n");
                 }
                 break;
-
-            case 2: // WRITE
+            case 2:
+                // WRITE operation
                 send_request(ss_sock, "WRITE");
                 char data[BUFFER_SIZE];
                 printf("Enter data to write to the file: ");
                 fgets(data, sizeof(data), stdin);
                 data[strcspn(data, "\n")] = '\0';
-                send_request(ss_sock, file_path);
-                send_request(ss_sock, data);
-                receive_response(ss_sock, buffer, BUFFER_SIZE);
-                printf("Server Response: %s\n", buffer);
+                send_request1(ss_sock, file_path);
+                send_request1(ss_sock, data);
+                if (receive_response(ss_sock, buffer, BUFFER_SIZE) > 0) {
+                    printf("Server Response:\n%s\n", buffer);
+                }
                 break;
-
-            case 3: // ZIP
+            case 3:
+                // Zip file
                 zip_file(file_path);
                 break;
-
-            case 4: // UNZIP
+            case 4:
+                // Unzip file
                 unzip_file(file_path);
                 break;
-
-            case 5: // DELETE
+            case 5:
+                // Delete file
                 delete_file(file_path);
                 break;
-
             default:
                 printf("Invalid choice. Try again.\n");
         }

@@ -244,11 +244,11 @@ void *handle_client(void *arg) {
     } else if(strncmp(buffer, "WRITE", 5) == 0) {
         handle_write(client);
     } else if(strncmp(buffer, "META", 4) == 0) {
-        type = 3;
+        handle_meta(client);
     } else if(strncmp(buffer, "STREAM", 6) == 0) {
-        type = 4;
+        handle_stream(client);
     } else if(strncmp(buffer, "DELETE", 6) == 0) {
-        type = 5;
+        handle_delete(client);
     } else if(strncmp(buffer, "ZIP", 3) == 0) {
         type = 6;
     } else if(strncmp(buffer, "UNZIP", 5) == 0) {
