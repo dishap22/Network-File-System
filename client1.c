@@ -70,6 +70,34 @@ int send_request(int sock, const char *request) {
     return 0;
 }
 
+int send_request1(int sock, const char *request) {
+    size_t length = strlen(request); // Get the actual length of the request
+
+    // Send the length of the request
+    size_t length_network_order = htonl(length); // Convert to network byte order
+    if (send(sock, &length_network_order, sizeof(length_network_order), 0) < 0) {
+        perror("Failed to send length");
+        return -1;
+    }
+
+    // Send the actual data
+    const char *ptr = request;
+    size_t remaining = length;
+    while (remaining > 0) {
+        ssize_t sent = send(sock, ptr, remaining, 0);
+        if (sent < 0) {
+            perror("Failed to send request");
+            return -1;
+        }
+        ptr += sent;
+        remaining -= sent;
+    }
+
+    printf("Request sent: %s\n", request);
+    return 0;
+}
+
+
 // Function to receive a response from the Storage Server
 ssize_t receive_response(int sock, char *buffer, size_t buffer_size) {
     printf("Here\n");
@@ -80,7 +108,6 @@ ssize_t receive_response(int sock, char *buffer, size_t buffer_size) {
         perror("Failed to receive response");
         return -1;
     }
-    printf("meow\n");
     buffer[received_bytes] = '\0'; // Null-terminate the received string
     return received_bytes;
 }
@@ -92,7 +119,7 @@ void perform_operations(int ss_sock) {
 
     while (1) {
         int choice;
-
+        printf("Here2\n");
         // Display menu
         printf("\nChoose an operation:\n");
         printf("1. Read File\n");
@@ -114,11 +141,9 @@ void perform_operations(int ss_sock) {
 
         if (choice == 1) {
             // Handle READ operation
-            snprintf(request, sizeof(request), "READ %s", file_path);
-            if (send_request(ss_sock, "READ") < 0) {
-                break;
-            }
-            send_request(ss_sock,file_path);
+            //snprintf(request, sizeof(request), "%s", file_path);
+            send_request(ss_sock, "READ");
+            send_request1(ss_sock,file_path);
             ssize_t received_bytes = receive_response(ss_sock, buffer, BUFFER_SIZE);
             if (received_bytes > 0) {
                 printf("File Content:\n%s\n", buffer);
@@ -143,8 +168,8 @@ void perform_operations(int ss_sock) {
             fgets(data, sizeof(data), stdin);
             data[strcspn(data, "\n")] = '\0';
 
-            send_request(ss_sock,file_path);
-            send_request(ss_sock,data);
+            send_request1(ss_sock,file_path);
+            send_request1(ss_sock,data);
 
             ssize_t received_bytes = receive_response(ss_sock, buffer, BUFFER_SIZE);
             if (received_bytes > 0) {
@@ -155,6 +180,7 @@ void perform_operations(int ss_sock) {
         } else {
             printf("Invalid choice. Try again.\n");
         }
+        printf("Here\n");
     }
 }
 

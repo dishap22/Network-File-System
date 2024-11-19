@@ -194,7 +194,6 @@ void *handle_client(void *arg) {
     int bytes_received = recv(client->socket, buffer, BUFFER_SIZE, 0);
     if (bytes_received <= 0) {
         printf("Client %s:%d disconnected\n", client->ip, client->port);
-        printf("here\n");
         close(client->socket);
         return NULL;
     }
@@ -203,6 +202,7 @@ void *handle_client(void *arg) {
 
     int type = 0;
     if(strncmp(buffer, "READ", 4) == 0) {
+        printf("Hello\n");
         handle_read(client);
     } else if(strncmp(buffer, "WRITE", 5) == 0) {
         handle_write(client);
@@ -239,16 +239,51 @@ void *handle_naming_server(void *arg) {
 // Function to handle client requests
 void handle_read(Client *client) {
     char path[BUFFER_SIZE];
+    char data[BUFFER_SIZE];
     char confirmation[BUFFER_SIZE];
 
-    // Receive path from client
-    recv(client->socket, path, BUFFER_SIZE, 0);
+    size_t path_length;
+    size_t data_length;
+
+    // Receive the length of the path
+    if (recv(client->socket, &path_length, sizeof(path_length), 0) <= 0) {
+        perror("Failed to receive path length");
+        strcpy(confirmation, "-1");
+        send(client->socket, confirmation, strlen(confirmation), 0);
+        return;
+    }
+    path_length = ntohl(path_length); // Convert from network byte order
+
+    // Ensure the path fits in the buffer
+    if (path_length >= BUFFER_SIZE) {
+        fprintf(stderr, "Path length exceeds buffer size\n");
+        strcpy(confirmation, "-1");
+        send(client->socket, confirmation, strlen(confirmation), 0);
+        return;
+    }
+
+    // Receive the actual path
+    size_t received = 0;
+    while (received < path_length) {
+        ssize_t chunk = recv(client->socket, path + received, path_length - received, 0);
+        if (chunk <= 0) {
+            perror("Failed to receive path");
+            strcpy(confirmation, "-1");
+            send(client->socket, confirmation, strlen(confirmation), 0);
+            return;
+        }
+        received += chunk;
+    }
+    path[path_length] = '\0'; // Null-terminate the path string
+
+
     printf("Received path: %s\n", path);
+
     char text[BUFFER_SIZE * MAX_FILE_SIZE];
     int present = 0;
-    FILE *fp = fopen(path, "r");
 
-    // Send number of lines in file
+    // Attempt to open the file
+    FILE *fp = fopen(path, "r");
     if (fp == NULL) {
         // Send -1 if any error occurs
         strcpy(confirmation, "-1");
@@ -263,42 +298,109 @@ void handle_read(Client *client) {
             num_lines++;
         }
         fclose(fp);
-        // Send number of lines in file
+        // Send the number of lines in the file
         sprintf(confirmation, "%d", num_lines);
     }
     send(client->socket, confirmation, strlen(confirmation), 0);
-    if(present) {
+
+    if (present) {
         return;
     }
+
     // Send file content
     send(client->socket, text, strlen(text), 0);
+    return;
 }
+
 
 void handle_write(Client *client) {
     char path[BUFFER_SIZE];
     char data[BUFFER_SIZE];
     char confirmation[BUFFER_SIZE];
 
-    // Receive path and data from client
-    recv(client->socket, path, BUFFER_SIZE, 0);
-    recv(client->socket, data, BUFFER_SIZE, 0);
+    size_t path_length;
+    size_t data_length;
+
+    // Receive the length of the path
+    if (recv(client->socket, &path_length, sizeof(path_length), 0) <= 0) {
+        perror("Failed to receive path length");
+        strcpy(confirmation, "-1");
+        send(client->socket, confirmation, strlen(confirmation), 0);
+        return;
+    }
+    path_length = ntohl(path_length); // Convert from network byte order
+
+    // Ensure the path fits in the buffer
+    if (path_length >= BUFFER_SIZE) {
+        fprintf(stderr, "Path length exceeds buffer size\n");
+        strcpy(confirmation, "-1");
+        send(client->socket, confirmation, strlen(confirmation), 0);
+        return;
+    }
+
+    // Receive the actual path
+    size_t received = 0;
+    while (received < path_length) {
+        ssize_t chunk = recv(client->socket, path + received, path_length - received, 0);
+        if (chunk <= 0) {
+            perror("Failed to receive path");
+            strcpy(confirmation, "-1");
+            send(client->socket, confirmation, strlen(confirmation), 0);
+            return;
+        }
+        received += chunk;
+    }
+    path[path_length] = '\0'; // Null-terminate the path string
+
+    // Receive the length of the data
+    if (recv(client->socket, &data_length, sizeof(data_length), 0) <= 0) {
+        perror("Failed to receive data length");
+        strcpy(confirmation, "-1");
+        send(client->socket, confirmation, strlen(confirmation), 0);
+        return;
+    }
+    data_length = ntohl(data_length); // Convert from network byte order
+
+    // Ensure the data fits in the buffer
+    if (data_length >= BUFFER_SIZE) {
+        fprintf(stderr, "Data length exceeds buffer size\n");
+        strcpy(confirmation, "-1");
+        send(client->socket, confirmation, strlen(confirmation), 0);
+        return;
+    }
+
+    // Receive the actual data
+    received = 0;
+    while (received < data_length) {
+        ssize_t chunk = recv(client->socket, data + received, data_length - received, 0);
+        if (chunk <= 0) {
+            perror("Failed to receive data");
+            strcpy(confirmation, "-1");
+            send(client->socket, confirmation, strlen(confirmation), 0);
+            return;
+        }
+        received += chunk;
+    }
+    data[data_length] = '\0'; // Null-terminate the data string
+
     printf("Received path: %s\n", path);
     printf("Received data: %s\n", data);
 
     // Write data to file
     FILE *fp = fopen(path, "w");
     if (fp == NULL) {
-        // Send -1 if any error occurs
         strcpy(confirmation, "-1");
         perror("Failed to open file");
     } else {
         fputs(data, fp);
         fclose(fp);
-        // Send 1 if write is successful
         strcpy(confirmation, "1");
     }
+
+    // Send confirmation
     send(client->socket, confirmation, strlen(confirmation), 0);
 }
+
 
 // Send data of number of lines, number of words, number of characters, date of creation, date of last modification, file size
 void handle_meta(Client *client) {
