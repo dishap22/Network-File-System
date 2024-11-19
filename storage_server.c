@@ -273,6 +273,7 @@ void *handle_naming_server(void *arg) {
     return NULL;
 }
 
+
 void handle_read(Client *client) {
     char path[BUFFER_SIZE];
     char confirmation[BUFFER_SIZE];
