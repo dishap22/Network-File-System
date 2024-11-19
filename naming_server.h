@@ -14,6 +14,7 @@
 
 #include "data.h"
 #include "LRU.h"
+#include "errorcodes.h"
 
 #define MAX_CLIENTS 100
 #define MAX_STORAGE_SERVERS 100
