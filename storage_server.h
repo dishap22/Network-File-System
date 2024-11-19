@@ -19,4 +19,18 @@
 #define MAX_PATHS 100 // max number of paths in a storage server
 #define BUFFER_SIZE 1024
 
+typedef struct {
+    int socket;
+    struct sockaddr_in addr;
+    char ip[16];
+    int port;
+} Client;
+
+typedef struct {
+    int socket;
+    struct sockaddr_in addr;
+    char ip[16];
+    int port;
+} NamingServer;
+
 #endif
