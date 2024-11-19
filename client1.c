@@ -137,16 +137,14 @@ void perform_operations(int ss_sock) {
                 break;
             }
         } else if (choice == 2) {
-            // Handle WRITE operation
+            send_request(ss_sock,"WRITE");
             char data[BUFFER_SIZE];
             printf("Enter data to write to the file: ");
             fgets(data, sizeof(data), stdin);
             data[strcspn(data, "\n")] = '\0';
 
-            snprintf(request, sizeof(request), "WRITE %s %s", file_path, data);
-            if (send_request(ss_sock, request) < 0) {
-                break;
-            }
+            send_request(ss_sock,file_path);
+            send_request(ss_sock,data);
 
             ssize_t received_bytes = receive_response(ss_sock, buffer, BUFFER_SIZE);
             if (received_bytes > 0) {
