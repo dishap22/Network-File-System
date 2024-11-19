@@ -28,6 +28,7 @@ typedef struct {
     char ip[16];
     int port;
     int num_paths;
+    char paths[MAX_PATHS][MAX_PATH_SIZE];
     trie* paths_trie;
 } StorageServer;
 
