@@ -11,6 +11,16 @@ void handle_delete(Client *client);
 void handle_zip(Client *client);
 void handle_unzip(Client *client);
 
+int is_directory(const char *path) {
+    struct stat path_stat;
+    if (stat(path, &path_stat) != 0) {
+        // If stat fails, it's not necessarily a directory; handle as needed
+        return 0;
+    }
+    return S_ISDIR(path_stat.st_mode);
+}
+
+
 int main(int argc, char *argv[]) {
     if (argc != 3) {
         printf("Usage: %s <Naming Server IP> <Naming Server Port>\n", argv[0]);
@@ -236,14 +246,11 @@ void *handle_naming_server(void *arg) {
     return NULL;
 }
 
-// Function to handle client requests
 void handle_read(Client *client) {
     char path[BUFFER_SIZE];
-    char data[BUFFER_SIZE];
     char confirmation[BUFFER_SIZE];
 
     size_t path_length;
-    size_t data_length;
 
     // Receive the length of the path
     if (recv(client->socket, &path_length, sizeof(path_length), 0) <= 0) {
@@ -276,8 +283,15 @@ void handle_read(Client *client) {
     }
     path[path_length] = '\0'; // Null-terminate the path string
 
-
     printf("Received path: %s\n", path);
+
+    // Check if the path is a directory
+    if (is_directory(path)) {
+        fprintf(stderr, "Path is a directory\n");
+        strcpy(confirmation, "-2"); // -2 indicates path is a directory
+        send(client->socket, confirmation, strlen(confirmation), 0);
+        return;
+    }
 
     char text[BUFFER_SIZE * MAX_FILE_SIZE];
     int present = 0;
@@ -309,8 +323,8 @@ void handle_read(Client *client) {
 
     // Send file content
     send(client->socket, text, strlen(text), 0);
-    return;
 }
+
 
 
 void handle_write(Client *client) {
@@ -386,6 +400,14 @@ void handle_write(Client *client) {
     printf("Received path: %s\n", path);
     printf("Received data: %s\n", data);
 
+    // Check if the path is a directory
+    if (is_directory(path)) {
+        fprintf(stderr, "Path is a directory\n");
+        strcpy(confirmation, "-2"); // -2 indicates path is a directory
+        send(client->socket, confirmation, strlen(confirmation), 0);
+        return;
+    }
+
     // Write data to file
     FILE *fp = fopen(path, "w");
     if (fp == NULL) {
@@ -394,12 +416,13 @@ void handle_write(Client *client) {
     } else {
         fputs(data, fp);
         fclose(fp);
-        strcpy(confirmation, "1");
+        strcpy(confirmation, "1"); // 1 indicates success
     }
 
     // Send confirmation
     send(client->socket, confirmation, strlen(confirmation), 0);
 }
+
 
 
 // Send data of number of lines, number of words, number of characters, date of creation, date of last modification, file size

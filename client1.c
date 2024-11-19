@@ -149,18 +149,18 @@ void perform_operations(int ss_sock) {
                 printf("File Content:\n%s\n", buffer);
             }else if(received_bytes==0){
                printf("Received Nothing\n");
-             }else {
+            }else {
                 break;
             }
             //send_request(ss_sock,file_path);
-            received_bytes = receive_response(ss_sock, buffer, BUFFER_SIZE);
+            /*received_bytes = receive_response(ss_sock, buffer, BUFFER_SIZE);
             if (received_bytes > 0) {
                 printf("File Content:\n%s\n", buffer);
             }else if(received_bytes==0){
                printf("Received Nothing\n");
              }else {
                 break;
-            }
+            }*/
         } else if (choice == 2) {
             send_request(ss_sock,"WRITE");
             char data[BUFFER_SIZE];
