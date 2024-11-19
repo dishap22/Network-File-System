@@ -35,15 +35,17 @@ int initialize_client() {
     }
 
     printf("Connected to Naming Server at %s:%d\n", NAMING_SERVER_IP, NAMING_SERVER_PORT);
-    return sock;
 
-    if (send_request(sock, "CLIENT")<0){
+    // Send "CLIENT" message to Naming Server
+    if (send_request(sock, "CLIENT") < 0) {
         close(sock);
-        error_exit("Failed to send 'CLIENT' message to Naming Serve ");
+        error_exit("Failed to send 'CLIENT' message to Naming Server");
     }
-    printf(" 'CLIENT' message sent to Naming Server\n");
+
+    printf("'CLIENT' message sent to Naming Server\n");
     return sock;
 }
+
 
 // Connect to a Storage Server
 int connect_to_storage_server(const char *ss_ip, int ss_port) {

@@ -10,7 +10,7 @@
 
 // Constants
 #define NAMING_SERVER_IP "127.0.0.1"  // Replace with Naming Server's actual IP
-#define NAMING_SERVER_PORT 8080         // Replace with Naming Server's actual port
+#define NAMING_SERVER_PORT 8081       // Replace with Naming Server's actual port
 #define BUFFER_SIZE 1024
 
 // Function Declarations
