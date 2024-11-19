@@ -161,18 +161,35 @@ int connect_and_register(const char *nm_ip, int nm_port) {
     memset(temp, 0, sizeof(temp));
 
     int num_paths = 0;
-    char buffer1[MAX_PATH_SIZE * MAX_PATHS];
-    memset(buffer1, 0, sizeof(buffer1));
-    int cur = 0;
     while (fgets(temp, sizeof(temp), fp) != NULL) {
-        int idx = 14;
-        cur = num_paths * MAX_PATH_SIZE;
-        while (temp[idx] != '\n') {
-            buffer1[cur++] = temp[idx++];
-        }
-        buffer1[cur] = '\0';
         num_paths++;
+    }
+
+    pclose(fp);
+
+    fp = popen("find storage_space/*", "r");
+    if (fp == NULL) {
+        perror("Failed to execute find command");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+    Paths paths[num_paths];
+    for (int i = 0; i < num_paths; i++) {
+        paths[i].id = i + 1;
+        char temp[MAX_PATH_SIZE];
         memset(temp, 0, sizeof(temp));
+        fgets(temp, sizeof(temp), fp);
+        temp[strlen(temp) - 1] = '\0';
+        strcpy(paths[i].path, temp + 13);
+        int end = MAX_PATH_SIZE - 1;
+        while(paths[i].path[end] == '\0') {
+            paths[i].path[end] = '\0';
+            end--;
+        }
+    }
+
+    for (int i = 0; i < num_paths; i++) {
+        printf("%s\n", paths[i].path);
     }
 
     printf("Number of paths: %d\n", num_paths);
@@ -184,9 +201,19 @@ int connect_and_register(const char *nm_ip, int nm_port) {
         exit(EXIT_FAILURE);
     }
 
-    send(sock, buffer1, sizeof(buffer1), 0);
-    for(int i = 0; i < num_paths; i++) {
-        printf("%s\n", buffer1 + i * MAX_PATH_SIZE);
+    int cnt = 0;
+    while(cnt != num_paths) {
+        for(int i = 0; i < num_paths; i++) {
+            if(send(sock, &paths[i], sizeof(Paths), 0) < 0) {
+                perror("Failed to send paths to Naming Server");
+                close(sock);
+                exit(EXIT_FAILURE);
+            }
+        }
+        char count[MAX_NAME_SIZE];
+        memset(count, 0, sizeof(count));
+        recv(sock, count, sizeof(count), 0);
+        sscanf(count, "%d", &cnt);
     }
 
     pclose(fp);
