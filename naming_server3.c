@@ -97,28 +97,30 @@ void *handle_client(void *arg) {
                     continue;
                 }
             }
-            char *server_ip = storageServers[server_x].ip;
+            char *server_ip_str = storageServers[server_x].ip;
             int server_port = storageServers[server_x].port;
-            char response[MAX_RESPONSE_SIZE];
-            snprintf(response, sizeof(response), "SERVER %s:%d", server_ip, server_port);
-            int response_len = htonl(strlen(response));
-            send(client->socket, &response_len, sizeof(response_len), 0);
-            send(client->socket, response, strlen(response), 0);
-            printf("Sent server info to client %s:%d - %s\n", client->ip, client->port, response);
+            struct in_addr addr;
+            inet_pton(AF_INET, server_ip_str, &addr);
+            uint32_t server_ip = addr.s_addr;
+            uint32_t server_port_net = htonl(server_port);
+            send(client->socket, &server_ip, sizeof(server_ip), 0);
+            send(client->socket, &server_port_net, sizeof(server_port_net), 0);
+            printf("Sent server info to client %s:%d - IP: %s, Port: %d\n", client->ip, client->port, server_ip_str, server_port);
         }
         else if (strcmp(operation, "DELETE") == 0) {
             pthread_mutex_lock(&cache_mutex);
             trie* deletedNode = delete_path(fileStructure, filepath);
             pthread_mutex_unlock(&cache_mutex);
             if (deletedNode != NULL) {
-                char *server_ip = storageServers[deletedNode->server_x].ip;
+                char *server_ip_str = storageServers[deletedNode->server_x].ip;
                 int server_port = storageServers[deletedNode->server_x].port;
-                char response[MAX_RESPONSE_SIZE];
-                snprintf(response, sizeof(response), "SERVER %s:%d", server_ip, server_port);
-                int response_len = htonl(strlen(response));
-                send(client->socket, &response_len, sizeof(response_len), 0);
-                send(client->socket, response, strlen(response), 0);
-                printf("Deleted path and sent server info to client %s:%d - %s\n", client->ip, client->port, response);
+                struct in_addr addr;
+                inet_pton(AF_INET, server_ip_str, &addr);
+                uint32_t server_ip = addr.s_addr;
+                uint32_t server_port_net = htonl(server_port);
+                send(client->socket, &server_ip, sizeof(server_ip), 0);
+                send(client->socket, &server_port_net, sizeof(server_port_net), 0);
+                printf("Deleted path and sent server info to client %s:%d - IP: %s, Port: %d\n", client->ip, client->port, server_ip_str, server_port);
             } else {
                 int error_code = htonl(FILE_NOT_FOUND);
                 send(client->socket, &error_code, sizeof(error_code), 0);
