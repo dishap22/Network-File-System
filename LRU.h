@@ -1,10 +1,15 @@
 #ifndef _LRU_H_
 #define _LRU_H_
 
-#define CACHE_SIZE 5
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define CACHE_SIZE 16
 
 typedef struct CacheNode {
-    int ss_index;
+    char *path;
+    int ssid;
     struct CacheNode *next;
     struct CacheNode *prev;
 } CacheNode;
@@ -13,15 +18,15 @@ typedef struct Cache {
     CacheNode *head;
     CacheNode *tail;
     int size;
-    CacheNode *hash[CACHE_SIZE];
 } LRUCache;
 
 LRUCache *createCache();
-CacheNode *createCacheNode(int ss_index);
-void insertCacheNode(LRUCache *cache, int ss_index);
+CacheNode *createCacheNode(const char *path, int ssid);
+void insertCacheNode(LRUCache *cache, const char *path, int ssid);
 void removeTail(LRUCache *cache);
 void moveNodeToFront(LRUCache *cache, CacheNode *node);
-void accessCache(LRUCache *cache, int ss_index);
+void accessCache(LRUCache *cache, const char *path, int ssid);
 void printCache(LRUCache *cache);
+int searchCache(LRUCache *cache, const char *path);
 
 #endif
