@@ -195,6 +195,33 @@ void register_storage_server(int ssSocket, struct sockaddr_in ssAddr) {
     pthread_mutex_unlock(&ss_mutex);
 }
 
+// Function to register a client
+void register_client(int clientSocket, struct sockaddr_in clientAddr) {
+    pthread_mutex_lock(&clients_mutex);
+
+    if (client_number < MAX_CLIENTS) {
+        Client *client = &clients[client_number++];
+        client->socket = clientSocket;
+        client->addr = clientAddr;
+        inet_ntop(AF_INET, &clientAddr.sin_addr, client->ip, sizeof(client->ip));
+        client->port = ntohs(clientAddr.sin_port);
+
+        printf("Client %d connected: %s:%d\n", client_number, client->ip, client->port);
+
+        pthread_t client_thread;
+        if (pthread_create(&client_thread, NULL, handle_client, (void *)client) != 0) {
+            perror("Client thread creation failed");
+        } else {
+            pthread_detach(client_thread);
+        }
+    } else {
+        printf("Max clients reached. Connection refused: %s:%d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+        close(clientSocket);
+    }
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
 int main(int argc, char *argv[]) {
     srand(time(NULL)); // Initialize random seed for backup assignment
 
