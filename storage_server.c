@@ -186,13 +186,15 @@ int connect_and_register(const char *nm_ip, int nm_port) {
 }
 
 void *handle_client(void *arg) {
+    
     Client *client = (Client *)arg;
     printf("Client %s:%d connected\n", client->ip, client->port);
-
+    while(1){
     char buffer[BUFFER_SIZE];
     int bytes_received = recv(client->socket, buffer, BUFFER_SIZE, 0);
     if (bytes_received <= 0) {
         printf("Client %s:%d disconnected\n", client->ip, client->port);
+        printf("here\n");
         close(client->socket);
         return NULL;
     }
@@ -203,7 +205,7 @@ void *handle_client(void *arg) {
     if(strncmp(buffer, "READ", 4) == 0) {
         handle_read(client);
     } else if(strncmp(buffer, "WRITE", 5) == 0) {
-        type = 2;
+        handle_write(client);
     } else if(strncmp(buffer, "META", 4) == 0) {
         type = 3;
     } else if(strncmp(buffer, "STREAM", 6) == 0) {
@@ -219,10 +221,10 @@ void *handle_client(void *arg) {
         close(client->socket);
         return NULL;
     }
+    }
 
     sleep(1);
     close(client->socket);
-
     printf("Client %s:%d disconnected\n", client->ip, client->port);
     
     return NULL;
@@ -265,7 +267,6 @@ void handle_read(Client *client) {
         sprintf(confirmation, "%d", num_lines);
     }
     send(client->socket, confirmation, strlen(confirmation), 0);
-
     if(present) {
         return;
     }
