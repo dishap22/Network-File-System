@@ -22,7 +22,9 @@ void *check_storage_servers(void *arg) {
             if (send(storageServers[i].socket, "PING", strlen("PING"), 0) < 0) {
                 printf("Storage Server %s:%d is dead\n", storageServers[i].ip, storageServers[i].port);
                 storageServers[i].alive_flag = 0;
-            } 
+            } else {
+                storageServers[i].alive_flag = 1;
+            }
         }
         pthread_mutex_unlock(&ss_mutex);
         sleep(5);
